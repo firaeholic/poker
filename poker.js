@@ -12,7 +12,6 @@ let brokePlayers = [];
 let allInPlayers = [];
 let whoRaised = 0;
 let round = 0;
-let gameEnded = false;
 let bots = false;
 let allCalled = false;
 let calledPlayers = [];
@@ -122,7 +121,7 @@ function checkTurn(pl){
         turn = starterPlayer;
         turns = 1;
         if (whoRaised == 0){
-            betAmount = 2000;
+            // betAmount = 2000;
             document.getElementById("bet-amt").innerHTML = betAmount;
         }
         addOneCard(); // add new card to table and turn to next round
@@ -146,7 +145,7 @@ function checkTurn(pl){
         pl = starterPlayer;
         turn = starterPlayer;
         addOneCard();
-        betAmount = 2000;
+        // betAmount = 2000;
         document.getElementById("bet-amt").innerHTML = betAmount;
     }
     if (pl != 1 && bots){
@@ -320,6 +319,7 @@ function raise(pl){
         return
     }
     betAmount += raiseAmt;
+    allCalled = false;
     betAmountPlayer(player, pl)
     document.getElementById("bet-amt").innerHTML = betAmount;
     whoRaised = pl;
@@ -778,6 +778,13 @@ function isGamePlayable(){
 
 function refreshInfo(){
     turn = 1;
+    betAmount = 2000;
+    turns = 1;
+    calledPlayers = [];
+    allCalled = false;
+    raised = false;
+    totalTable = 0;
+    starterPlayer = 1;
     foldedPlayers = [];
     playerCards = [];
     allInPlayers = [];
@@ -799,6 +806,8 @@ function refreshInfo(){
         if (hand) hand.remove();
     });
     document.querySelector(".total-table-bet").innerHTML = 0;
+    tableCards = document.querySelector(".table-cards").innerHTML = '';
+    checkCallText(0, true);
     document.getElementById("bet-amt").innerHTML = 2000;
     document.getElementById("nextBtn").style.display = "none";
     document.getElementById("restartBtn").style.display = "none";
