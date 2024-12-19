@@ -16,6 +16,8 @@ let bots = false;
 let allCalled = false;
 let calledPlayers = [];
 let starterPlayer = 1;
+let isFirstRound = true;
+let gameOver = false;
 let turns = 1;
 cardNum = ["A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K"];
 cardSuit = ["♠", "♣", "♥", "♦"];
@@ -34,7 +36,7 @@ const handRanks = {
 
 function botGame(){
     bots = true
-    document.getElementById("addPlayerBtn").innerHTML = "Add Bot";
+    document.getElementById("addPlayerBtn").innerHTML = "Add";
     initiateGame();
 }
 
@@ -78,15 +80,25 @@ function addPlayer(){
 }
 
 function checkTurn(pl){
-    if (calledPlayers.length == playerCount){
+    if (pl > playerCount){
+        pl = 1;
+        turn = 1;
+        console.log("player shifted")
+    }
+    if (gameOver){
+        return;
+    }
+    if (calledPlayers.length == playerCount - foldedPlayers.length){
         allCalled = true;
         checkCallText(pl, false);
         calledPlayers = [];
     }
+    console.log("player is", pl)
     const player = playersTotal.find(player => player.player === pl);
     if(whoRaised != 0){
         turns++;
     }
+    console.log("my1")
     if(pl > 1){
         lastPl = pl - 1
         let raiseCtn = document.querySelector(".raiseCtn-" + lastPl);
@@ -94,21 +106,38 @@ function checkTurn(pl){
         let prevPlayer = document.getElementById("tag-" + lastPl);
         prevPlayer.style.color = "black";
     }
-    if (allInPlayers.length == playerCount || allInPlayers.length == playerCount - 1){
+    console.log("my2")
+    if (allInPlayers.length == playerCount || allInPlayers.length == playerCount - 1 && allCalled){
+        console.log("players are are in an called")
         pl = 1;
+        document.getElementById("tag-" + pl).style.color = "black";
         if (round == 5){
+            addOneCard()
             return;
         }
         setTimeout(() => {
-            addOneCard();
+            if (isFirstRound){
+                addOneCard()
+                addOneCard()
+                addOneCard()
+                isFirstRound = false;
+            }else{
+                addOneCard()
+            }
             checkTurn(pl);
         }, 1500);
     }
+    console.log("my3")
     if (foldedPlayers.includes(pl)){
+        console.log("is it here", pl, turn, turns)
         pl++;
         turn++;
         turns++;
         checkTurn(pl); // if that person folded, skip them
+        return
+    }
+    if (allInPlayers.includes(pl)){
+        check(pl, true);
         return
     }
     if (pl > playerCount){
@@ -124,17 +153,28 @@ function checkTurn(pl){
             // betAmount = 2000;
             document.getElementById("bet-amt").innerHTML = betAmount;
         }
-        addOneCard(); // add new card to table and turn to next round
+        if (isFirstRound){
+            addOneCard()
+            addOneCard()
+            addOneCard()
+            isFirstRound = false;
+        }else{
+            addOneCard()
+        }
         checkTurn(pl);
         return
     }
-    if(player.total == 0 && !allInPlayers.includes(pl) && round != 0){
-        allInPlayers.push(pl);
-        document.querySelector(`.status-${pl}`).innerHTML = "Status: All In";
-        pl++;
-        turn++;
-        checkTurn(pl); // if that person has 0, he's all in
-        return
+    try {
+        if(player.total == 0 && !allInPlayers.includes(pl) && round != 0){
+            allInPlayers.push(pl);
+            document.querySelector(`.status-${pl}`).innerHTML = "Status: All In";
+            pl++;
+            turn++;
+            checkTurn(pl); // if that person has 0, he's all in
+            return
+        }
+    } catch (error) {
+        console.log("error", error)
     }
     let currentPlayer = document.getElementById("tag-" + pl);
     currentPlayer.style.color = "blue";
@@ -144,8 +184,15 @@ function checkTurn(pl){
         turns = 1;
         pl = starterPlayer;
         turn = starterPlayer;
-        addOneCard();
-        // betAmount = 2000;
+        if (isFirstRound){
+            addOneCard()
+            addOneCard()
+            addOneCard()
+            isFirstRound = false;
+        }else{
+            addOneCard()
+        }
+        betAmount = 0;
         document.getElementById("bet-amt").innerHTML = betAmount;
     }
     if (pl != 1 && bots){
@@ -158,11 +205,10 @@ function automateBot(player) {
     const combos = playerCards.map(playerCard => combination(playerCard));
     const botCombo = combos.find(combo => combo.player === player);
     const handRank = handRanks[botCombo.hand];
+    const playerObj = playersTotal.find(p => p.player === player);
     const statusElement = document.querySelector(`.status-${player}`);
     let delay = Math.floor(Math.random() * 3000) + 2000;
     let riskLevel = Math.random();
-
-    console.log("who raised", whoRaised)
 
     statusElement.textContent = "Thinking...";
     setTimeout(() => {
@@ -170,15 +216,17 @@ function automateBot(player) {
         console.log(`Round: ${(round+1)}, Player: ${player}, Hand rank: ${handRank}, Risk level: ${riskLevel}`);
         if (round === 0) {
             if (handRank === 3) {
-                executeRaise(player, Math.random() * 5000 + 3000);
+                // executeRaise(player, Math.random() * 5000 + 3000);
+                executeRaise(player, playerObj.total - betAmount - 4000);
             } else if (handRank === 2) {
                 if (riskLevel > 0.3) {
-                    executeRaise(player, Math.random() * 3000 + 1000);
+                    // executeRaise(player, Math.random() * 3000 + 1000);
+                    executeRaise(player, playerObj.total - betAmount - 25000);
                 } else {
                     check(player);
                 }
             } else {
-                if (riskLevel > 0.4) {
+                if (riskLevel > 0.2) {
                     check(player);
                 } else {
                     fold(player);
@@ -235,7 +283,8 @@ function automateBot(player) {
                 executeAllIn(player);
             } else if (handRank >= 6) {
                 if (riskLevel > 0.3) {
-                    executeRaise(player, Math.random() * 7000 + 2000);
+                    // executeRaise(player, Math.random() * 7000 + 2000);
+                    executeRaise(player, playerObj.total - betAmount - 3000);
                 } else {
                     check(player);
                 }
@@ -256,10 +305,12 @@ function automateBot(player) {
             if (handRank === 10) {
                 executeAllIn(player);
             } else if (handRank >= 8) {
-                executeRaise(player, Math.random() * 9000 + 5000);
+                // executeRaise(player, Math.random() * 9000 + 5000);
+                executeRaise(player, playerObj.total - betAmount - 1000);
             } else if (handRank >= 5) {
                 if (riskLevel > 0.4) {
-                    executeRaise(player, Math.random() * 6000 + 3000);
+                    // executeRaise(player, Math.random() * 6000 + 3000);
+                    executeRaise(player, playerObj.total - betAmount - 20000);
                 } else {
                     check(player);
                 }
@@ -272,20 +323,27 @@ function automateBot(player) {
             }
         }
     }, delay);
-
-    function executeRaise(player, amount) {
-        const raiseAmount = Math.floor(amount);
-        document.querySelector(`#raiseAmt-${player}`).value = raiseAmount;
-        raise(player);
-    }
-
-    function executeAllIn(player) {
-        const playerObj = playersTotal.find(p => p.player === player);
-        const raiseAmount = playerObj.total - betAmount;
-        document.querySelector(`#raiseAmt-${player}`).value = raiseAmount;
-        raise(player);
-    }
 }
+function executeRaise(player, amount) {
+    if (amount <= 0) {
+        executeAllIn(player);
+        return;
+    }
+    const raiseAmount = Math.floor(amount / 1000) * 1000; // Round down to nearest 1000
+    document.querySelector(`#raiseAmt-${player}`).value = raiseAmount;
+    raise(player);
+}
+
+function executeAllIn(player) {
+    console.log("all in")
+    const playerObj = playersTotal.find(p => p.player === player);
+    let raiseAmount = playerObj.total - betAmount;
+    raiseAmount = Math.floor(raiseAmount / 1000) * 1000; // Round down to nearest 1000
+    playerObj.total = 0
+    document.getElementById("total-" + player).innerHTML = "Total: $0";
+    document.querySelector(`#raiseAmt-${player}`).value = raiseAmount;
+    raise(player);
+} 
 
 
 
@@ -303,6 +361,7 @@ function promptRaise(pl){
 }
 
 function raise(pl){
+    calledPlayers = [];
     let raiseAmt = document.getElementById("raiseAmt-" + pl).value;
     const player = playersTotal.find(player => player.player === pl);
     raiseAmt = parseInt(raiseAmt);
@@ -318,19 +377,39 @@ function raise(pl){
         showAlert('Not Enough Money', 'You can\'t raise that much!');
         return
     }
-    betAmount += raiseAmt;
+    if (isFirstRound){
+        betAmount += raiseAmt;
+    }else{
+        betAmount = raiseAmt;
+    }
+    console.log("aaaa")
+
+    const minPlayerTotal = Math.min(...allPlayers.map(pl => 
+        playersTotal.find(player => player.player === pl).total
+    ));
+    
+    if (betAmount > minPlayerTotal) {
+        console.log("bbbb")
+        betAmount = minPlayerTotal; // Adjust to the player with the least total money
+    }
+
+    console.log("cccc")
     allCalled = false;
     betAmountPlayer(player, pl)
     document.getElementById("bet-amt").innerHTML = betAmount;
     whoRaised = pl;
+    console.log("dddd")
     checkCallText(pl, true); // change text to call for other players
+    document.querySelector(".raiseCtn-" + pl).style.display = "none";
+    document.getElementById("tag-" + pl).style.color = "black";
     calledPlayers.push(pl);
+    starterPlayer = pl;
     turn++;
     pl++;
     checkTurn(turn);
-    starterPlayer = pl-1;
     turns = 1;
-    showPopup(`Player ${(pl-1)} raised $${raiseAmt}`);
+    console.log("bababa")
+    showPopup(`Player ${(pl-1)} raised $${betAmount}`);
 }
 
 function checkCallText(pl, toCall) {
@@ -360,9 +439,10 @@ function checkCallText(pl, toCall) {
 
 function addOneCard(){
     round++;
-    if (round == 6){ // if all 5 cards are on the table, calculate the result
+    if (round >= 6){ // if all 5 cards are on the table, calculate the result
         document.getElementById("nextBtn").style.display = "block";
         showAlert('Game Over', 'Check the results!');
+        gameOver = true;
         calculateResult(playerCards);
         return;
     }
@@ -381,6 +461,7 @@ function addOneCard(){
     playerCards.forEach(playerCard => {
         playerCard.cards += ", " + plCard + suit;
     });
+    console.log("round", round)
 }
 
 function deal(reDeal = false){
@@ -471,8 +552,8 @@ function fold(pl){
     gameStatus()
 }
 
-function check(pl){
-    if (turn != pl){
+function check(pl, autoCheck = false){
+    if (turn != pl ){
         showAlert('Not Your Turn', 'Please wait for your turn!');
         return;
     }
@@ -513,6 +594,11 @@ function betAmountPlayer(player, pl){
     }
     player.total -= betAmount;
     totalTable += betAmount;
+    if (player.total == 0){
+        allInPlayers.push(pl);
+        document.querySelector(".status-" + pl).innerHTML = "Status: All-in";
+        document.getElementById("tag-" + pl).style.color = "gold";
+    }
     const amt = document.getElementById("total-" + pl);
     amt.innerHTML = `Total: $${player.total}`;
     document.querySelector(".total-table-bet").innerHTML = totalTable;
@@ -529,9 +615,11 @@ function gameStatus(){
                 const amt = document.getElementById("total-" + pl);
                 amt.innerHTML = `Total: $${player.total}`;
                 showAlert('Game Over', 'Check the results!');
+                gameOver = true;
                 let playr = document.getElementById("tag-" + pl);
                 playr.style.color = "black";
                 document.getElementById("nextBtn").style.display = "block";
+                return
             }
         })
     }
@@ -544,6 +632,7 @@ function calculateResult(playerCards) {
     const winners = determineWinner(activeCombos);
     resultInfo(combos, winners);
     disableBtns();
+    return
 }
 
 function determineWinner(players) {
@@ -783,6 +872,8 @@ function refreshInfo(){
     calledPlayers = [];
     allCalled = false;
     raised = false;
+    isFirstRound = true;
+    gameOver = false;
     totalTable = 0;
     starterPlayer = 1;
     foldedPlayers = [];
@@ -796,6 +887,7 @@ function refreshInfo(){
         let status = document.querySelector(".status-" + player);
         status.innerHTML = "Status: Playing";
         let actionBtns = document.querySelectorAll(".actionBtn-" + player);
+        document.getElementById("tag-" + player).style.color = "black";
         for (let i = 0; i < actionBtns.length; i++) {
             actionBtns[i].disabled = false;
             actionBtns[i].style.color = "white";
